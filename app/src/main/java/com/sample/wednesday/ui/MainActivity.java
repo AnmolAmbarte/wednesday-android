@@ -15,6 +15,7 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.sample.wednesday.R;
 import com.sample.wednesday.adapter.MainActivityAdapter;
@@ -76,15 +77,20 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
                 new Observer<List<Result>>() {
                     @Override
                     public void onChanged(List<Result> matches) {
-                        System.out.println("Matches" + matches);
-                        System.out.println("Matches " + matches.size());
-                        mDetails.addAll(matches);
-                        mAdapter.notifyDataSetChanged();
-                        swipeLayout.setRefreshing(false);
+                        if (matches != null) {
+                            //System.out.println("Matches" + matches);
+                            //System.out.println("Matches " + matches.size());
+                            mDetails.addAll(matches);
+                            mAdapter.notifyDataSetChanged();
+                            swipeLayout.setRefreshing(false);
+                        }else {
+                            Toast.makeText(context, "NO Connection", Toast.LENGTH_SHORT).show();
+                            swipeLayout.setRefreshing(false);
+
+                        }
                     }
                 });
         initRecyclerView();
-        swipeLayout.setRefreshing(false);
 
     }
 
