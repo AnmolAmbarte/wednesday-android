@@ -17,6 +17,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.facebook.shimmer.ShimmerFrameLayout;
 import com.sample.wednesday.R;
 import com.sample.wednesday.adapter.MainActivityAdapter;
 import com.sample.wednesday.data.MainActivityRepository;
@@ -34,6 +35,8 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     RecyclerView recyclerView;
     SwipeRefreshLayout swipeLayout;
     Context context;
+    private ShimmerFrameLayout mShimmerViewContainer;
+
     MainActivityRepository repository = MainActivityRepository.getInstance();
     List<Result> mDetails = new ArrayList<Result>();
 
@@ -44,6 +47,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         setContentView(R.layout.activity_main);
 
         context = MainActivity.this;
+        mShimmerViewContainer = findViewById(R.id.shimmer_view_container);
 
         this.getSupportActionBar().setDisplayOptions(ActionBar.DISPLAY_SHOW_CUSTOM);
         getSupportActionBar().setDisplayShowCustomEnabled(true);
@@ -58,8 +62,10 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
             @Override
             public void onClick(View v) {
                 if (mainActivityViewModel != null) {
-                    swipeLayout.setRefreshing(true);
                     mDetails.clear();
+                    mShimmerViewContainer.setVisibility(View.VISIBLE);
+                    mShimmerViewContainer.startShimmerAnimation();
+                    //swipeLayout.setRefreshing(true);
                     String data = ed_searchTerm.getText().toString();
                     mainActivityViewModel.findTerm(data);
                 }
@@ -68,7 +74,7 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
 
 
         swipeLayout = findViewById(R.id.swipe_site);
-        swipeLayout.setRefreshing(true);
+        //swipeLayout.setRefreshing(true);
         swipeLayout.setOnRefreshListener(this);
         recyclerView = findViewById(R.id.list_recyclerView);
         mainActivityViewModel = ViewModelProviders.of(this).get(MainActivityViewModel.class);
@@ -82,6 +88,8 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
                             //System.out.println("Matches " + matches.size());
                             mDetails.addAll(matches);
                             mAdapter.notifyDataSetChanged();
+                            mShimmerViewContainer.stopShimmerAnimation();
+                            mShimmerViewContainer.setVisibility(View.GONE);
                             swipeLayout.setRefreshing(false);
                         }else {
                             Toast.makeText(context, "NO Connection", Toast.LENGTH_SHORT).show();
@@ -102,7 +110,16 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
             recyclerView.setAdapter(mAdapter);
         }
     }
-
+    @Override
+    public void onResume() {
+        super.onResume();
+        mShimmerViewContainer.startShimmerAnimation();
+    }
+    @Override
+    protected void onPause() {
+        mShimmerViewContainer.stopShimmerAnimation();
+        super.onPause();
+    }
     @Override
     public void onRefresh() {
         mainActivityViewModel.init();

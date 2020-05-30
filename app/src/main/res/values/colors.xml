@@ -8,5 +8,7 @@
     <color name="color_red">#FA0101</color>
     <color name="color_green">#8BC34A</color>
     <color name="transp">#80000000</color>
+    <color name="background">#dddddd</color>
+
 
 </resources>
