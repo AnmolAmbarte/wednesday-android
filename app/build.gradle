@@ -42,10 +42,14 @@ dependencies {
     implementation 'com.google.android.material:material:1.1.0'
     // glide
     implementation 'com.github.bumptech.glide:glide:4.11.0'
-        //shimmer
-        implementation 'com.facebook.shimmer:shimmer:0.1.0@aar'
+    //shimmer
+    implementation 'com.facebook.shimmer:shimmer:0.1.0@aar'
 
+    def room_version = "2.2.5"
 
+    implementation "androidx.room:room-runtime:$room_version"
+    annotationProcessor "androidx.room:room-compiler:$room_version"
+    // For Kotlin use kapt instead of annotationProcessor
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.0.0'
     implementation 'com.google.android.material:material:1.1.0'
 

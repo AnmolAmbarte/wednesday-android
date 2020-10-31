@@ -1,28 +1,25 @@
 package com.sample.wednesday.ui;
 
-import androidx.appcompat.app.ActionBar;
+import android.content.Context;
+import android.content.IntentFilter;
+import android.os.Bundle;
+import android.view.View;
+import android.widget.AbsListView;
+import android.widget.Toast;
+
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.lifecycle.Observer;
-import androidx.lifecycle.ViewModelProviders;
-import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
-import android.content.Context;
-import android.os.Bundle;
-import android.view.View;
-import android.widget.EditText;
-import android.widget.ImageView;
-import android.widget.TextView;
-import android.widget.Toast;
-
 import com.facebook.shimmer.ShimmerFrameLayout;
 import com.sample.wednesday.R;
 import com.sample.wednesday.adapter.MainActivityAdapter;
-import com.sample.wednesday.data.MainActivityRepository;
-import com.sample.wednesday.model.Example;
-import com.sample.wednesday.model.Result;
+import com.sample.wednesday.model.Data;
+import com.sample.wednesday.utils.CheckConnection;
 import com.sample.wednesday.viewmodel.MainActivityViewModel;
 
 import java.util.ArrayList;
@@ -36,9 +33,12 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
     SwipeRefreshLayout swipeLayout;
     Context context;
     private ShimmerFrameLayout mShimmerViewContainer;
+    List<Data> mDetails = new ArrayList<Data>();
+    private boolean isScrolling = false;
+    private boolean isOffline = false;
 
-    MainActivityRepository repository = MainActivityRepository.getInstance();
-    List<Result> mDetails = new ArrayList<Result>();
+    ShowHideProgress showHideProgress;
+    private int initPage = 1;
 
 
     @Override
@@ -46,83 +46,131 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        CheckConnection checkConnection = new CheckConnection();
+        IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction("android.net.conn.CONNECTIVITY_CHANGE");
+        intentFilter.addAction("android.net.wifi.WIFI_STATE_CHANGED");
+        registerReceiver(checkConnection, intentFilter);
+
         context = MainActivity.this;
         mShimmerViewContainer = findViewById(R.id.shimmer_view_container);
+        showHideProgress = new ShowHideProgress(context);
 
-        this.getSupportActionBar().setDisplayOptions(ActionBar.DISPLAY_SHOW_CUSTOM);
-        getSupportActionBar().setDisplayShowCustomEnabled(true);
-        //getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-        getSupportActionBar().setCustomView(R.layout.home_tool_bar);
-        getSupportActionBar().setElevation(1);
-        View view = getSupportActionBar().getCustomView();
-        final EditText ed_searchTerm = view.findViewById(R.id.ed_find_term);
-        ImageView iv_searchTerm = view.findViewById(R.id.iv_find_term);
-
-        iv_searchTerm.setOnClickListener(new View.OnClickListener() {
+        swipeLayout = findViewById(R.id.swipe_site);
+        swipeLayout.setOnRefreshListener(this);
+        recyclerView = findViewById(R.id.list_recyclerView);
+        mainActivityViewModel = new MainActivityViewModel();
+        mainActivityViewModel.init(context);
+        mainActivityViewModel.getDataRepository().observe(this, new Observer<List<Data>>() {
             @Override
-            public void onClick(View v) {
-                if (mainActivityViewModel != null) {
-                    mDetails.clear();
-                    mShimmerViewContainer.setVisibility(View.VISIBLE);
-                    mShimmerViewContainer.startShimmerAnimation();
-                    //swipeLayout.setRefreshing(true);
-                    String data = ed_searchTerm.getText().toString();
-                    mainActivityViewModel.findTerm(data);
+            public void onChanged(List<Data> matches) {
+                if (matches != null) {
+                    mDetails.addAll(matches);
+                    mAdapter.notifyDataSetChanged();
+                    isOffline = false;
+                    swipeLayout.setVisibility(View.VISIBLE);
+                    mShimmerViewContainer.stopShimmerAnimation();
+                    mShimmerViewContainer.setVisibility(View.GONE);
+                    showHideProgress.hideDialog();
+                    swipeLayout.setRefreshing(false);
+                } else {
+                    Toast.makeText(context, "NO Connection", Toast.LENGTH_SHORT).show();
+                    observeStorage();
                 }
             }
         });
-
-
-        swipeLayout = findViewById(R.id.swipe_site);
-        //swipeLayout.setRefreshing(true);
-        swipeLayout.setOnRefreshListener(this);
-        recyclerView = findViewById(R.id.list_recyclerView);
-        mainActivityViewModel = ViewModelProviders.of(this).get(MainActivityViewModel.class);
-        mainActivityViewModel.init();
-        mainActivityViewModel.getDataRepository().observe(this,
-                new Observer<List<Result>>() {
-                    @Override
-                    public void onChanged(List<Result> matches) {
-                        if (matches != null) {
-                            //System.out.println("Matches" + matches);
-                            //System.out.println("Matches " + matches.size());
-                            mDetails.addAll(matches);
-                            mAdapter.notifyDataSetChanged();
-                            mShimmerViewContainer.stopShimmerAnimation();
-                            mShimmerViewContainer.setVisibility(View.GONE);
-                            swipeLayout.setRefreshing(false);
-                        }else {
-                            Toast.makeText(context, "NO Connection", Toast.LENGTH_SHORT).show();
-                            swipeLayout.setRefreshing(false);
-
-                        }
-                    }
-                });
         initRecyclerView();
+    }
 
+
+    void observeStorage() {
+
+        mainActivityViewModel.getRepositoryRoom();
+        mainActivityViewModel.getDataRepositoryRoom().observe(this, new Observer<List<Data>>() {
+            @Override
+            public void onChanged(List<Data> data) {
+                if (data != null) {
+                    mDetails.addAll(data);
+                    mAdapter.notifyDataSetChanged();
+                    isOffline = true;
+                    mShimmerViewContainer.stopShimmerAnimation();
+                    mShimmerViewContainer.setVisibility(View.GONE);
+                    swipeLayout.setVisibility(View.VISIBLE);
+                    showHideProgress.hideDialog();
+                    swipeLayout.setRefreshing(false);
+                }
+            }
+        });
     }
 
     private void initRecyclerView() {
         if (mAdapter == null) {
             mAdapter = new MainActivityAdapter(context, mDetails);
-            RecyclerView.LayoutManager manager = new GridLayoutManager(this, 2);
-            recyclerView.setLayoutManager(manager);
+            final LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this);
+            linearLayoutManager.setOrientation(LinearLayoutManager.VERTICAL);
+            final DividerItemDecoration dividerItemDecoration = new DividerItemDecoration(recyclerView.getContext(), linearLayoutManager.getOrientation());
+            recyclerView.addItemDecoration(dividerItemDecoration);
+            recyclerView.setNestedScrollingEnabled(false);
+            recyclerView.setLayoutManager(linearLayoutManager);
             recyclerView.setAdapter(mAdapter);
+
+            recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+                @Override
+                public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
+                    super.onScrollStateChanged(recyclerView, newState);
+
+                    if (newState == AbsListView.OnScrollListener.SCROLL_STATE_TOUCH_SCROLL) {
+                        isScrolling = true;
+                    }
+                }
+
+                @Override
+                public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                    super.onScrolled(recyclerView, dx, dy);
+
+                    int currentItems = linearLayoutManager.getChildCount();
+                    int scrolledOutItems = linearLayoutManager.findFirstVisibleItemPosition();
+                    int totalItems = linearLayoutManager.getItemCount();
+
+
+                    System.out.println("PAGE  currentItems" + currentItems);
+                    System.out.println("PAGE  scrolledOutItems " + scrolledOutItems);
+                    System.out.println("PAGE  totalItems" + totalItems);
+                    System.out.println("PAGE  Data List Size" + mDetails.size());
+
+                    System.out.println("-----PAGE----  ");
+                    if (isScrolling && !isOffline) {
+                        if ((currentItems + scrolledOutItems == totalItems)) {
+                            if (mDetails.size() < 12) {
+                                mainActivityViewModel.findTerm(++initPage, 5);
+                                showHideProgress.showDialog("Loading..");
+                            }
+                        }
+                    }
+                }
+
+            });
+
         }
     }
+
     @Override
     public void onResume() {
         super.onResume();
         mShimmerViewContainer.startShimmerAnimation();
+        showHideProgress.showDialog("Loading..");
     }
+
     @Override
     protected void onPause() {
         mShimmerViewContainer.stopShimmerAnimation();
+        showHideProgress.hideDialog();
         super.onPause();
     }
+
     @Override
     public void onRefresh() {
-        mainActivityViewModel.init();
+        mainActivityViewModel.init(context);
         swipeLayout.setRefreshing(false);
     }
 }

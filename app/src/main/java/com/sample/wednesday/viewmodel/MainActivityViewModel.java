@@ -1,54 +1,49 @@
 package com.sample.wednesday.viewmodel;
 
+import android.content.Context;
+
 import androidx.lifecycle.LiveData;
-import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
-import com.sample.wednesday.data.MainActivityRepository;
-import com.sample.wednesday.model.Example;
-import com.sample.wednesday.model.Result;
+import com.sample.wednesday.model.Data;
+import com.sample.wednesday.repo.MainActivityRepository;
+import com.sample.wednesday.room.PostRoomDBRepository;
 
 import java.util.List;
 
 public class MainActivityViewModel extends ViewModel {
 
-    private MutableLiveData<List<Result>> mutableLiveData;
+
+    private LiveData<List<Data>> mainLiveData;
+    private LiveData<List<Data>> mainLiveDataRoom;
     private MainActivityRepository repository;
+    private PostRoomDBRepository postRoomDBRepository;
 
-
-    public void init() {
-        if (mutableLiveData != null) {
-            return;
-        }
-        repository = MainActivityRepository.getInstance();
-        mutableLiveData = repository.getData("bollywood");
-
+    public void init(Context context) {
+        repository = new MainActivityRepository(context);
+        postRoomDBRepository = new PostRoomDBRepository(context);
+        mainLiveData = repository.getData(1, 5);
     }
 
-    public LiveData<List<Result>> getDataRepository() {
-        return mutableLiveData;
-    }
-
-    public void findTerm(String term) {
-        mutableLiveData = repository.getData(term);
+    public LiveData<List<Data>> getDataRepository() {
+        return mainLiveData;
     }
 
 
-    /*
-      private class AsyncData extends AsyncTask<String, Void, MutableLiveData<List<Result>>> {
-
-        @Override
-        protected MutableLiveData<List<Result>> doInBackground(String... params) {
-            mutableLiveData = repository.getData(params[0]);
-            return mutableLiveData;
-        }
-
-        @Override
-        protected void onPostExecute(MutableLiveData<List<Result>> listMutableLiveData) {
-            mutableLiveData = (listMutableLiveData);
-            super.onPostExecute(listMutableLiveData);
-        }
+    public void getRepositoryRoom() {
+        mainLiveDataRoom = postRoomDBRepository.getAllPosts();
     }
 
-     */
+    public LiveData<List<Data>> getDataRepositoryRoom() {
+        return mainLiveDataRoom;
+    }
+
+
+
+
+    public void findTerm(int page, int perPage) {
+        mainLiveData = repository.getData(page, perPage);
+    }
+
+
 }
